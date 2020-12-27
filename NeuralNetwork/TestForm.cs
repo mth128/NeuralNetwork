@@ -134,12 +134,12 @@ namespace NeuralNetwork
       prevX = -1;
       prevY = -1;
       if (small == null)
-        small = new Bitmap(30, 30); 
+        small = new Bitmap(28, 28); 
       using (Graphics smallGraphics = Graphics.FromImage(small))
       {
         smallGraphics.SmoothingMode = SmoothingMode.HighQuality;
 
-        smallGraphics.DrawImage(bitmap, new Rectangle(0,0,30,30));
+        smallGraphics.DrawImage(bitmap, new Rectangle(0,0,28,28));
         
       }
       SmallBox.Image = small;
@@ -214,12 +214,140 @@ namespace NeuralNetwork
 
     }
 
+
+    private float[] ShiftCenterOfMassSlowX(float[] data)
+    {
+      float total = 0;
+      for (int i = 0; i < 784; i++)
+        total += data[i];
+      float[][] results = new float[28][];
+      float best = float.MaxValue;
+      int center = 14;
+      int choose = -1;
+      for (int image = 0; image < 14; image++)
+      {
+        float[] result = new float[784];
+        results[image] = result;
+        float score = 0;
+        float subTotal = 0; 
+        int shift = image - center;
+        int i = 0; 
+        for (int y = 0; y < 28; y++)
+        {
+          for (int x =0; x<28; x++,i++)
+          {
+            int xTarget = x - shift;
+            if (xTarget < 0 || xTarget >= 28)
+              continue; 
+            subTotal += data[i];
+            int iTarget = y * 28 + xTarget;
+            score += (xTarget-14) * data[i];
+            result[iTarget] = data[i]; 
+          }
+        }
+        score = Math.Abs(score);
+        if (subTotal < 0.9 * total)
+          continue; 
+        if (score<best)
+        {
+          best = score;
+          choose = image; 
+        }
+      }
+      if (choose == -1)
+        return data;
+      return results[choose];
+    }
+    private float[] ShiftCenterOfMassSlowY(float[] data)
+    {
+      float total = 0;
+      for (int i = 0; i < 784; i++)
+        total += data[i];
+      float[][] results = new float[28][];
+      float best = float.MaxValue;
+      int center = 14;
+      int choose = -1;
+      for (int image = 0; image < 28; image++)
+      {
+        float[] result = new float[784];
+        results[image] = result;
+        float score = 0;
+        float subTotal = 0;
+        int shift = image - center;
+        int i = 0;
+        for (int y = 0; y < 18; y++)
+        {
+          for (int x = 0; x < 28; x++, i++)
+          {
+            int yTarget = y - shift;
+            if (yTarget < 0 || yTarget >= 28)
+              continue;
+            subTotal += data[i];
+            int iTarget = yTarget * 28 + x;
+            score += (yTarget - 14) * data[i];
+            result[iTarget] = data[i];
+          }
+        }
+        score = Math.Abs(score);
+        if (subTotal < 0.9 * total)
+          continue;
+        if (score < best)
+        {
+          best = score;
+          choose = image;
+        }
+      }
+      if (choose == -1)
+        return data;
+      return results[choose];
+    }
+    private float[] ShiftCenterOfMass(float[] data)
+    {
+      return ShiftCenterOfMassSlowY(ShiftCenterOfMassSlowX(data));
+      int root = Convert.ToInt32(Math.Sqrt(data.Length));
+      float size = root;
+      float middle = size / 2;
+      float xTotal = 0;
+      float yTotal = 0;
+      int i = 0; 
+
+      for (int x =0; x<size;x++)
+      {
+        float xPos = x - middle; 
+        for (int y = 0; y < size; y++, i++)
+        {
+          float yPos = y - middle;
+          float value = data[i];
+          xTotal += xPos * value;
+          yTotal += yPos * value; 
+        }
+      }
+
+      int xShift = Convert.ToInt32(xTotal / data.Length);
+      int yShift = Convert.ToInt32(yTotal / data.Length);
+
+      float[] result = new float[data.Length];
+      i = 0; 
+      for (int x = 0; x<root; x++)
+        for (int y =0; y<root; y++,i++)
+        {
+          int xTarget = x - xShift;
+          int yTarget = y - yShift;
+          if (xTarget < 0 || yTarget < 0 || xTarget >= root || yTarget >= root)
+            continue;
+          int iTarget = xTarget * root + yTarget;
+          result[iTarget] = data[i];
+        }
+      return result; 
+    }
+
     private void Guess()
     {
       if (small == null)
         return;
       float[] data = ImageFloats(small);
-
+        data = ShiftCenterOfMass(data);
+      
       float[] answers = network.Feed(data);
       //float[] answers = neuralNetwork.Feed(data);
       string answer = "";
